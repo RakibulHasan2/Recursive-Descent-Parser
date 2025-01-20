@@ -3,47 +3,38 @@
 #include <ctype.h>
 #include <string.h>
 
-// Token Types
+// Define Token Types
 typedef enum {
-    TOKEN_NUMBER,
-    TOKEN_PLUS,
-    TOKEN_MINUS,
-    TOKEN_MULTIPLY,
-    TOKEN_DIVIDE,
-    TOKEN_LPAREN,
-    TOKEN_RPAREN,
-    TOKEN_END,
-    TOKEN_INVALID
+    NUMBER, PLUS, MINUS, MULTIPLY, DIVIDE, LPAREN, RPAREN, END, INVALID
 } TokenType;
 
-// Token Structure
+// Define Token Structure
 typedef struct {
     TokenType type;
-    int value; // Used only for numbers
+    int value;
 } Token;
 
-// Global Variables
 char *input;
 Token currentToken;
 
-// Function Prototypes
-void nextToken();
-int parseExpression();
-int parseTerm();
-int parseFactor();
-void error(const char *message);
+void getNextToken();
+int evaluateExpression();
+int evaluateTerm();
+int evaluateFactor();
+void throwError(const char *message);
 
-// Lexer: Fetch the next token
-void nextToken() {
+// Function to Fetch the Next Token
+void getNextToken() {
+    // Skip spaces
     while (isspace(*input)) input++;
 
-    if (*input == '\0') {
-        currentToken.type = TOKEN_END;
+    if (*input == '\0') { // End of input
+        currentToken.type = END;
         return;
     }
 
-    if (isdigit(*input)) {
-        currentToken.type = TOKEN_NUMBER;
+    if (isdigit(*input)) { // Handle numbers
+        currentToken.type = NUMBER;
         currentToken.value = 0;
         while (isdigit(*input)) {
             currentToken.value = currentToken.value * 10 + (*input - '0');
@@ -52,98 +43,105 @@ void nextToken() {
         return;
     }
 
+    // Handle operators and parentheses
     switch (*input) {
-        case '+': currentToken.type = TOKEN_PLUS; input++; break;
-        case '-': currentToken.type = TOKEN_MINUS; input++; break;
-        case '*': currentToken.type = TOKEN_MULTIPLY; input++; break;
-        case '/': currentToken.type = TOKEN_DIVIDE; input++; break;
-        case '(': currentToken.type = TOKEN_LPAREN; input++; break;
-        case ')': currentToken.type = TOKEN_RPAREN; input++; break;
-        default: currentToken.type = TOKEN_INVALID; input++; break;
+        case '+': currentToken.type = PLUS; input++; break;
+        case '-': currentToken.type = MINUS; input++; break;
+        case '*': currentToken.type = MULTIPLY; input++; break;
+        case '/': currentToken.type = DIVIDE; input++; break;
+        case '(': currentToken.type = LPAREN; input++; break;
+        case ')': currentToken.type = RPAREN; input++; break;
+        default: currentToken.type = INVALID; input++; break;
     }
 }
 
-// Parser Error Handling
-void error(const char *message) {
-    fprintf(stderr, "Error: %s\n", message);
+// Throw Error and Exit
+void throwError(const char *message) {
+    printf("Error: %s\n", message);
     exit(EXIT_FAILURE);
 }
 
-// Recursive Descent Parsing Functions
-int parseExpression() {
-    int result = parseTerm();
+// Parse and Evaluate an Expression (Handles +, -)
+int evaluateExpression() {
+    int result = evaluateTerm();
 
-    while (currentToken.type == TOKEN_PLUS || currentToken.type == TOKEN_MINUS) {
+    while (currentToken.type == PLUS || currentToken.type == MINUS) {
         TokenType operator = currentToken.type;
-        nextToken();
-        int rhs = parseTerm();
-        if (operator == TOKEN_PLUS) {
-            result += rhs;
+        getNextToken();
+        int nextValue = evaluateTerm();
+
+        if (operator == PLUS) {
+            result += nextValue;
         } else {
-            result -= rhs;
+            result -= nextValue;
         }
     }
 
     return result;
 }
 
-int parseTerm() {
-    int result = parseFactor();
+// Parse and Evaluate a Term (Handles *, /)
+int evaluateTerm() {
+    int result = evaluateFactor();
 
-    while (currentToken.type == TOKEN_MULTIPLY || currentToken.type == TOKEN_DIVIDE) {
+    while (currentToken.type == MULTIPLY || currentToken.type == DIVIDE) {
         TokenType operator = currentToken.type;
-        nextToken();
-        int rhs = parseFactor();
-        if (operator == TOKEN_MULTIPLY) {
-            result *= rhs;
+        getNextToken();
+        int nextValue = evaluateFactor();
+
+        if (operator == MULTIPLY) {
+            result *= nextValue;
         } else {
-            if (rhs == 0) {
-                error("Division by zero");
+            if (nextValue == 0) {
+                throwError("Division by zero is not allowed.");
             }
-            result /= rhs;
+            result /= nextValue;
         }
     }
 
     return result;
 }
 
-int parseFactor() {
-    if (currentToken.type == TOKEN_NUMBER) {
+// Parse and Evaluate a Factor (Handles numbers and parentheses)
+int evaluateFactor() {
+    if (currentToken.type == NUMBER) {
         int value = currentToken.value;
-        nextToken();
+        getNextToken();
         return value;
-    } else if (currentToken.type == TOKEN_LPAREN) {
-        nextToken();
-        int result = parseExpression();
-        if (currentToken.type != TOKEN_RPAREN) {
-            error("Expected closing parenthesis");
+    } else if (currentToken.type == LPAREN) {
+        getNextToken();
+        int value = evaluateExpression();
+        if (currentToken.type != RPAREN) {
+            throwError("Missing closing parenthesis.");
         }
-        nextToken();
-        return result;
+        getNextToken();
+        return value;
     } else {
-        error("Invalid factor");
+        throwError("Invalid input.");
         return 0; // Unreachable
     }
 }
 
 // Main Function
 int main() {
-    char buffer[256];
+    char inputBuffer[256];
 
-    printf("Enter a mathematical expression: ");
-    if (!fgets(buffer, sizeof(buffer), stdin)) {
-        error("Failed to read input");
+    printf("Enter an expression: ");
+    if (!fgets(inputBuffer, sizeof(inputBuffer), stdin)) {
+        throwError("Failed to read input.");
     }
 
-    input = buffer;
-    nextToken();
+    input = inputBuffer;
+    getNextToken();
 
-    int result = parseExpression();
+    int result = evaluateExpression();
 
-    if (currentToken.type != TOKEN_END) {
-        error("Unexpected characters at end of input");
+    if (currentToken.type != END) {
+        throwError("Unexpected input at the end.");
     }
-
-    printf("Result: %d\n", result);
+    if(result){
+        printf("Valid Expression\n");
+        printf("Result: %d\n", result);
+    }
     return 0;
 }
